@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/confuscsharpnator.Core/confuscsharpnator.Core.csproj" />
+    <Project Path="src/confuscsharpnator.Presentation/confuscsharpnator.Presentation.csproj" />
+    <Project Path="src/confuscsharpnator.UI.WinForms/confuscsharpnator.UI.WinForms.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/confuscsharpnator.Core.Tests/confuscsharpnator.Core.Tests.csproj" />
+  </Folder>
+</Solution>
