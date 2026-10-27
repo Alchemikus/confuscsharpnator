@@ -257,7 +257,7 @@
             ButtonObfuscate.Name = "ButtonObfuscate";
             ButtonObfuscate.Size = new Size(486, 29);
             ButtonObfuscate.TabIndex = 10;
-            ButtonObfuscate.Text = "Obfuskuj";
+            ButtonObfuscate.Text = "Zaciemnij";
             ButtonObfuscate.UseVisualStyleBackColor = true;
             // 
             // TextBoxOutputFolderPath
