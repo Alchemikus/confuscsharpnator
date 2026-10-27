@@ -14,11 +14,15 @@ namespace confuscsharpnator.Presentation
             _mainView = mainView;
             _obfuscatorMetadata = obfuscatorMetadata;
 
-            // Every action that we subscribe has to be unsubscribed in Dispose method to avoid memory leaks.
+            // Every action that we subscribe has to be unsubscribed in Dispose(bool) method to avoid memory leaks.
             _mainView.ViewClosing += OnMainViewClosing;
             _mainView.Obfuscate += OnObfuscate;
         }
 
+        /// <summary>
+        /// Entry point for the presenter.
+        /// It shows view.
+        /// </summary>
         public void Run()
         {
             _mainView.Show();
@@ -38,11 +42,11 @@ namespace confuscsharpnator.Presentation
         {
             if (!disposing || _disposed) return;
 
-            //unsibscribing from events
+            // unsubscribing from events
             _mainView.ViewClosing -= OnMainViewClosing;
             _mainView.Obfuscate -= OnObfuscate;
 
-            //disposing elements
+            // disposing elements
             _mainView.Dispose();
 
             _disposed = true;

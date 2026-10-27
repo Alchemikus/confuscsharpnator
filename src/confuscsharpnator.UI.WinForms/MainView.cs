@@ -1,4 +1,6 @@
-﻿namespace confuscsharpnator.UI.WinForms
+﻿using System.Drawing.Drawing2D;
+
+namespace confuscsharpnator.UI.WinForms
 {
     public partial class MainView : Form, IMainView, IObfuscatorMetadata
     {
@@ -14,16 +16,66 @@
         public event Action? Obfuscate;
         public event Action? ViewClosing;
         private Label? LabelAttention;
+        // prevents from screen flickering
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams cp = base.CreateParams;
+                cp.ExStyle |= 0x02000000; // WS_EX_COMPOSITED
+                return cp;
+            }
+        }
+
         public MainView()
         {
             InitializeComponent();
+            this.SetStyle(
+                ControlStyles.AllPaintingInWmPaint |
+                ControlStyles.UserPaint |
+                ControlStyles.OptimizedDoubleBuffer |
+                ControlStyles.ResizeRedraw,
+                true);
+            this.UpdateStyles();
+
+            typeof(Button).InvokeMember("DoubleBuffered",
+                System.Reflection.BindingFlags.SetProperty |
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic,
+                null, ButtonObfuscate, [true]);
+            typeof(Button).InvokeMember("DoubleBuffered",
+                System.Reflection.BindingFlags.SetProperty |
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic,
+                null, ButtonEntryFolder, [true]);
+            typeof(Button).InvokeMember("DoubleBuffered",
+                System.Reflection.BindingFlags.SetProperty |
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic,
+                null, ButtonOutputFolderPath, [true]);
+
             ButtonObfuscate.Click += (s, e) => Obfuscate?.Invoke();
+            ButtonObfuscate.Paint += GradientPainting;
+
             ButtonEntryFolder.Click += ButtonEntryFolder_Click;
+            ButtonEntryFolder.Paint += GradientPainting;
+
             ButtonOutputFolderPath.Click += ButtonOutputFolderPath_Click;
+            ButtonOutputFolderPath.Paint += GradientPainting;
+
             TextBoxEntryFolderPath.TextChanged += ValidateFolderPaths;
+
             TextBoxOutputFolderPath.TextChanged += ValidateFolderPaths;
             this.FormClosing += (s, e) => ViewClosing?.Invoke();
         }
+
+        /// <summary>
+        /// Shows message in separate window.
+        /// By default we treat it as information.
+        /// </summary>
+        /// <param name="message"></param>
+        /// <param name="caption"></param>
+        /// <param name="icon"></param>
         public void ShowMessage(string message, string? caption = null, MessageBoxIcon? icon = null)
         {
             MessageBox.Show(message, caption ?? "Confuscsharpnator", MessageBoxButtons.OK, icon ?? MessageBoxIcon.Information);
@@ -36,6 +88,10 @@
             ClearCheckboxToDefaultState();
         }
 
+        /// <summary>
+        /// Prevents user from interacting with the form while sth is in progress.
+        /// </summary>
+        /// <param name="freeze"></param>
         public void FreezeActions(bool freeze)
         {
             ButtonEntryFolder.Enabled = !freeze;
@@ -66,6 +122,58 @@
             }
         }
 
+        // one of substract responsible for preventing flickering of the form
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            if (this.BackgroundImage != null)
+            {
+                e.Graphics.Clear(this.BackColor);
+
+                float scale = Math.Max((float)this.Width / this.BackgroundImage.Width,
+                                       (float)this.Height / this.BackgroundImage.Height);
+
+                int drawWidth = (int)(this.BackgroundImage.Width * scale);
+                int drawHeight = (int)(this.BackgroundImage.Height * scale);
+
+                int x = (this.Width - drawWidth) / 2;
+                int y = (this.Height - drawHeight) / 2;
+
+                e.Graphics.DrawImage(this.BackgroundImage, x, y, drawWidth, drawHeight);
+
+                using SolidBrush overlayBrush = new(Color.FromArgb(170, 255, 255, 255));
+                e.Graphics.FillRectangle(overlayBrush, this.ClientRectangle);
+            }
+            else
+            {
+                base.OnPaintBackground(e);
+            }
+        }
+
+        // gradient painting
+        private void GradientPainting(object? sender, PaintEventArgs e)
+        {
+            if (sender is not Button)
+                return;
+
+            Button btn = (Button)sender;
+
+            using LinearGradientBrush brush = new (btn.ClientRectangle, Color.Empty, Color.Empty, 0f);
+            ColorBlend colorBlend = new()
+            {
+                Colors = [
+                    Color.FromArgb(85, 115, 200),  // Blue
+                    Color.FromArgb(100, 220, 245), // Light Blue
+                    Color.FromArgb(185, 140, 235)  // Violet/Pink
+                ],
+                Positions = [0.0f, 0.5f, 1.0f] // Define the positions of the colors in the gradient
+            };
+            brush.InterpolationColors = colorBlend;
+
+            e.Graphics.FillRectangle(brush, btn.ClientRectangle);
+
+            TextRenderer.DrawText(e.Graphics, btn.Text, btn.Font, btn.ClientRectangle, btn.ForeColor, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        }
+
         private void ClearCheckboxToDefaultState()
         {
             CheckBoxVariableRenaming.Checked = true;
@@ -77,6 +185,11 @@
             CheckBoxAntiTamper.Checked = false;
         }
 
+        /// <summary>
+        /// Chekcs if paths are equal, if so informs about possible demage.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void ValidateFolderPaths(object? sender, EventArgs e)
         {
             bool arePathsEqual = !string.IsNullOrWhiteSpace(TextBoxOutputFolderPath.Text) &&
