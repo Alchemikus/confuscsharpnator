@@ -192,6 +192,83 @@ namespace confuscsharpnator.Core.Tests.Passes
         }
 
 
+
+
+        //Sprawdź czy metoda zwraca oryginalny kod gdy nic nie zostało przekazane
+
+        [Theory]
+        [InlineData("")]       // Run 1: input = ""
+        [InlineData("   ")]    // Run 2: input = "   "
+        [InlineData(null)]     // Run 3: input = null
+        public void ShouldReturnOriginal_WhenInputIsNullOrEmpty(string? input)
+        {
+            //ARRANGE
+            var pass = new VariableRenamingPass();
+            var context = new ObfuscationContext();
+
+            //ACT
+            string result = pass.Process(input!, context);
+
+            //ASSERT
+            Assert.Equal(input, result);
+        }
+
+
+
+
+        //Sprawdź czy zmieni nazwy pól klas
+        [Fact]
+        public void Process_ShouldRenameClassFieldsAndTheirUsages()
+        {
+            //ARRANGE
+            var pass = new VariableRenamingPass();
+            var context = new ObfuscationContext();
+
+            string input = @"
+                class Counter {
+                    private int currentCount = 0;
+                    public void Increment() {
+                        currentCount++;
+                    }
+                }";
+
+
+            //ACT
+            string result = pass.Process(input, context);
+
+
+            //ASSERT
+            Assert.DoesNotContain("currentCount", result);
+            Assert.Contains("_0x0001", result);
+        }
+
+
+
+
+        //Sprawdź czy zmieni nazwy zmiennych w pętli
+        [Fact]
+        public void Process_ShouldRenameForLoopCounters()
+        {
+            //ARRANGE
+            var pass = new VariableRenamingPass();
+            var context = new ObfuscationContext();
+            string input = @"
+                class LoopExample {
+                    public void LoopMethod() {
+                        for (int i = 0; i < 10; i++) {
+                            Console.WriteLine(i);
+                        }
+                    }
+                }";
+
+            //ACT
+            string result = pass.Process(input, context);
+
+            //ASSERT
+            Assert.DoesNotContain("int i = 0", result);
+            Assert.DoesNotContain("i < 10", result);
+            Assert.Contains("_0x0001", result);
+        }
     }
 
 
