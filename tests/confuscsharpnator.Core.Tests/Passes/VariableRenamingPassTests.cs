@@ -67,5 +67,133 @@ namespace confuscsharpnator.Core.Tests.Passes
             //Sprawdź czy w context pojawiły się 3 nowe nazwy
             Assert.Equal(3, context.ProcessedSymbolsCount);
         }
+
+
+
+
+
+        //Test sprawdzający czy zmieni wszystkie nazwy zmiennych w jednej linii
+
+        [Fact]
+        public void Process_ShouldHandleMultipleVariablesInSingleLine()
+        {
+
+            //ARRANGE
+            var pass = new VariableRenamingPass();
+            var context = new ObfuscationContext();
+
+            string input = "class C { void M() { int a = 1, b = 2; int sum = a + b; } }";
+
+
+            //ACT
+            string result = pass.Process(input, context);
+
+
+            //ASSERT
+            Assert.DoesNotContain("a = 1", result);
+            Assert.DoesNotContain("int a", result);
+            Assert.DoesNotContain("b = 2", result);
+            Assert.DoesNotContain("int b", result);
+            Assert.DoesNotContain("int sum", result);
+
+            Assert.Contains("_0x0001", result);
+            Assert.Contains("_0x0002", result);
+            Assert.Contains("_0x0003", result);
+        }
+
+
+
+
+        //Sprawdzenie działania przy interpolacji stringów
+        [Fact]
+        public void Process_ShouldHandleStringInterpolation() 
+        { 
+            //ARRANGE
+            var pass = new VariableRenamingPass();
+            var context = new ObfuscationContext();
+
+            string input = @"
+                class C { 
+                    void M() { 
+                        int value = 42; 
+                        string msg = $""Number is {value}""; 
+                    } 
+                }";
+
+
+            //ACT
+            string result = pass.Process(input, context);
+
+
+            //ASSERT
+            Assert.DoesNotContain("value = 42", result);
+            Assert.DoesNotContain("int value", result);
+            Assert.DoesNotContain("{value}", result);
+
+
+            Assert.Contains("{_0x0001}", result);
+            Assert.Contains("int _0x0001", result);
+        }
+
+
+
+        //Sprawdzenie w znaku "_" (discard symbol)
+        [Fact]
+        public void Process_ShouldNotRenameDiscardSymbol()
+        {
+            //ARRANGE
+            var pass = new VariableRenamingPass();
+            var context = new ObfuscationContext();
+
+            string input = @"
+                class C { 
+                    void M() {
+                        _ = System.Math.Abs(-5); 
+                    } 
+                }";
+
+
+            //ACT
+            string result = pass.Process(input, context);
+
+
+            //ASSERT
+
+            //Sprawdź czy symbol discard "_" otrzymał nową nazwę
+            Assert.DoesNotContain("_0x0001", result);
+        }
+
+
+
+        //Sprawdzenie w przypadku braku deklaracji zmiennych
+        [Fact]
+        public void Process_ShouldNotRenameWhenNoVariableDeclarations()
+        {
+            //ARRANGE
+            var pass = new VariableRenamingPass();
+            var context = new ObfuscationContext();
+
+            string input = @"
+                class C { 
+                    void M() {
+                        Console.WriteLine(""Hello World"");
+                    } 
+                }";
+
+
+            //ACT
+            string result = pass.Process(input, context);
+
+
+            //ASSERT
+
+            //Sprawdź czy pojwaiy się nowe nazwy
+            Assert.DoesNotContain("_0x0001", result);
+        }
+
+
     }
+
+
+
 }
