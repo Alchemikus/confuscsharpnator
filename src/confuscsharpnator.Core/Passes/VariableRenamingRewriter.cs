@@ -58,8 +58,16 @@ namespace confuscsharpnator.Core.Passes
                 //Stwóz nowy identyfikator
                 string newName = GetOrCreateNewName(oldName);
 
+                // Zachowaj wcięcia i spacje wokół nazwy zmiennej
+                var newIdentifier = SyntaxFactory.Identifier(
+                    node.Identifier.LeadingTrivia,
+                    newName,
+                    node.Identifier.TrailingTrivia);
+
                 //Utwórz nowy węzeł 
                 var updatedNode = node.WithIdentifier(SyntaxFactory.Identifier(newName));
+
+
 
                 return base.VisitVariableDeclarator(updatedNode);
             }
@@ -86,6 +94,9 @@ namespace confuscsharpnator.Core.Passes
                     node.Identifier.LeadingTrivia,
                     newName,
                     node.Identifier.TrailingTrivia);
+
+                //Zwróć podmieniony węzeł identyfikatora
+                return node.WithIdentifier(newIdentifier);
 
             }
 
