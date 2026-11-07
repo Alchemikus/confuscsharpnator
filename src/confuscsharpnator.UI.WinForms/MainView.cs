@@ -192,8 +192,7 @@ namespace confuscsharpnator.UI.WinForms
         /// <param name="e"></param>
         private void ValidateFolderPaths(object? sender, EventArgs e)
         {
-            bool arePathsEqual = !string.IsNullOrWhiteSpace(TextBoxOutputFolderPath.Text) &&
-                                 TextBoxEntryFolderPath.Text.Trim().Equals(TextBoxOutputFolderPath.Text.Trim(), StringComparison.OrdinalIgnoreCase);
+            bool arePathsEqual = AreDirectoryPathsEqual(TextBoxEntryFolderPath.Text, TextBoxOutputFolderPath.Text);
 
             if (arePathsEqual)
             {
@@ -226,6 +225,32 @@ namespace confuscsharpnator.UI.WinForms
                     LabelAttention.Dispose();
                     LabelAttention = null;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Checks if provided strings are equal by using Path library.
+        /// </summary>
+        /// <param name="path1"></param>
+        /// <param name="path2"></param>
+        /// <returns></returns>
+        private static bool AreDirectoryPathsEqual(string path1, string path2)
+        {
+            if (string.IsNullOrWhiteSpace(path1) || string.IsNullOrWhiteSpace(path2))
+            {
+                return false;
+            }
+
+            try
+            {
+                string fullPath1 = Path.GetFullPath(path1).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string fullPath2 = Path.GetFullPath(path2).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                return fullPath1.Equals(fullPath2, StringComparison.OrdinalIgnoreCase);
+            }
+            catch (Exception)
+            {
+                return false;
             }
         }
     }
