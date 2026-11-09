@@ -1,6 +1,10 @@
 ﻿using confuscsharpnator.UI.WinForms;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Build.Locator;
+using confuscsharpnator.Core.Abstractions;
+using confuscsharpnator.Core.Infrastructure;
+using confuscsharpnator.Core.Models;
 
 namespace confuscsharpnator.Presentation;
 
@@ -29,10 +33,16 @@ static class Program
 
                 // Presenter
                 services.AddSingleton<MainPresenter>();
+
+                // Core services
+                services.AddSingleton<IFileWriter, FileWriter>(provider => provider.GetRequiredService<FileWriter>());
+                services.AddSingleton<IObfuscationService>(provider => provider.GetRequiredService<ObfuscationService>());
             })
             .Build();
 
         using var scope = host.Services.CreateScope();
+        // Register MSBuild for Roslyn to work properly with .csproj files
+        MSBuildLocator.RegisterDefaults();
         var mainPresenter = scope.ServiceProvider.GetRequiredService<MainPresenter>();
         //When the main presenter signals that the view is closed, we want to exit the application.
         mainPresenter.CloseApplication += System.Windows.Forms.Application.Exit;
