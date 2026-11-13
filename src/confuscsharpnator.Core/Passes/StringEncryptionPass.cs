@@ -8,7 +8,7 @@ namespace confuscsharpnator.Core.Passes
     // Moduł obfuskacji odpowiedzialny za ukrywanie ciągów znaków (String Encryption Pass)
     public sealed class StringEncryptionPass : IObfuscationPass
     {
-        public string Name => "String Enctyption Pass";
+        public string Name => "String Encryption Pass";
 
         public string Process(string sourceCode, ObfuscationContext context)
         {
