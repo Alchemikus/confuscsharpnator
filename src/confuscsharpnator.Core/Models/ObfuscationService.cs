@@ -51,8 +51,10 @@ namespace confuscsharpnator.Core.Models
         {
             if (string.IsNullOrWhiteSpace(solutionFilePath) || !File.Exists(solutionFilePath))
                 throw new ArgumentException("Invalid solution file path.", nameof(solutionFilePath));
+            solutionFilePath = Path.GetFullPath(solutionFilePath);
 
             // If there exist a previously loaded workspace, dispose it to free resources before loading a new solution.
+            _roslynSolution = null;
             _workspace?.Dispose();
             _workspace = null;
 
@@ -64,6 +66,20 @@ namespace confuscsharpnator.Core.Models
             // and preprocessor directives to build a complete semantic model.
             _workspace = MSBuildWorkspace.Create();
             _roslynSolution = await _workspace.OpenSolutionAsync(solutionFilePath);
+
+            if (!_roslynSolution.Projects.Any())
+            {
+                var errors = string.Join(
+                    Environment.NewLine,
+                    _workspace.Diagnostics
+                        .Where(d => d.Kind == WorkspaceDiagnosticKind.Failure)
+                        .Select(d => d.Message));
+
+                throw new InvalidOperationException(
+                    string.IsNullOrWhiteSpace(errors)
+                        ? "Nie załadowano żadnego projektu z pliku rozwiązania."
+                        : $"MSBuild nie załadował projektów:{Environment.NewLine}{errors}");
+            }
         }
 
         /// <summary>
@@ -76,15 +92,26 @@ namespace confuscsharpnator.Core.Models
             if (!IsInitialized)
                 throw new InvalidOperationException("Service is not initialized. Please call InitializeAsync first.");
 
-            // Filter the injected steps to run only those explicitly requested by the user.
-            var stepsToExecute = _csharpSteps.Where(s => selectedStepNames.Contains(s.Name));
+            var selectedSet = new HashSet<string>(selectedStepNames, StringComparer.OrdinalIgnoreCase);
+
+            // Filter the injected steps to run only those explicitly requested by the user,
+            // ordered by ExecutionOrder (ascending) with a deterministic name tie-breaker.
+            var stepsToExecute = _csharpSteps
+                .Where(s => selectedSet.Contains(s.Name))
+                .OrderBy(s => s.ExecutionOrder)
+                .ThenBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var currentSolution = _roslynSolution!;
 
             foreach (var step in stepsToExecute)
             {
                 // Roslyn models are completely immutable. 
                 // Each step execution must return a brand new Solution instance containing the applied mutations.
-                _roslynSolution = step.Execute(_roslynSolution!, _context);
+                currentSolution = step.Process(currentSolution, _context);
             }
+
+            _roslynSolution = currentSolution;
         }
 
         /// <summary>
@@ -97,17 +124,19 @@ namespace confuscsharpnator.Core.Models
         {
             if (!IsInitialized)
                 throw new InvalidOperationException("No solution to save. Please call InitializeAsync first.");
+            if (string.IsNullOrWhiteSpace(targetDirectoryPath))
+                throw new ArgumentException("Target directory path cannot be empty.", nameof(targetDirectoryPath));
 
             var outputFiles = new Dictionary<string, string>();
 
             // We use a strict whitelist approach. We only save structural files and mutated C# code.
             // This prevents accidental data leaks of sensitive local files (like secrets.json or .git folders).
-            // It also have their disadvantage: any non-C# files (like XAML, images, or other resources) will not be copied to the output folder.
+            // It also has its disadvantage: any non-C# files (like XAML, images, or other resources) will not be copied to the output folder.
 
             // 1. Prepare to save the master solution file (.sln or .slnx).
             if (!string.IsNullOrWhiteSpace(_roslynSolution!.FilePath))
             {
-                string slnRelativePath = Path.GetRelativePath(_solutionRootPath, _roslynSolution.FilePath);
+                string slnRelativePath = GetSafeRelativePath(_roslynSolution.FilePath);
                 outputFiles[slnRelativePath] = await File.ReadAllTextAsync(_roslynSolution.FilePath);
             }
 
@@ -117,20 +146,22 @@ namespace confuscsharpnator.Core.Models
                 if (string.IsNullOrWhiteSpace(project.FilePath))
                     continue;
 
+                string projectDir = Path.GetDirectoryName(project.FilePath)!;
+
                 // 2. Prepare to save the project file (.csproj).
-                string csprojRelativePath = Path.GetRelativePath(_solutionRootPath, project.FilePath);
+                string csprojRelativePath = GetSafeRelativePath(project.FilePath);
                 outputFiles[csprojRelativePath] = await File.ReadAllTextAsync(project.FilePath);
 
                 // 3. Prepare to save the mutated C# syntax trees from Roslyn's memory.
                 foreach (var document in project.Documents)
                 {
-                    // Skip source-generated documents or files created on the fly during compilation 
-                    // that do not belong to the physical project structure.
-                    if (string.IsNullOrWhiteSpace(document.FilePath))
+                    // Skip source-generated documents, in-memory files, or SDK-generated build artifacts inside obj/ and bin/
+                    // that do not belong to the physical project source structure.
+                    if (string.IsNullOrWhiteSpace(document.FilePath) || IsBuildArtifact(projectDir, document.FilePath))
                         continue;
 
                     // Calculate the relative path so the directory structure is perfectly mirrored in the output folder.
-                    string relativePath = Path.GetRelativePath(_solutionRootPath, document.FilePath);
+                    string relativePath = GetSafeRelativePath(document.FilePath);
 
                     // Retrieve the obfuscated source code text.
                     var text = await document.GetTextAsync();
@@ -140,6 +171,45 @@ namespace confuscsharpnator.Core.Models
 
             // Flush everything to the disk concurrently.
             await _fileWriter.WriteAllFilesAsync(targetDirectoryPath, outputFiles);
+        }
+
+        /// <summary>
+        /// Determines whether a document file path resides within the project's intermediate or output build directories (<c>obj</c> or <c>bin</c>).
+        /// </summary>
+        /// <param name="projectDir">The root directory of the owning project.</param>
+        /// <param name="filePath">The full file path of the document to check.</param>
+        /// <returns><see langword="true"/> if the file is located inside <c>obj</c> or <c>bin</c>; otherwise, <see langword="false"/>.</returns>
+        private static bool IsBuildArtifact(string projectDir, string filePath)
+        {
+            string relativeToProject = Path.GetRelativePath(projectDir, filePath);
+            string[] segments = relativeToProject.Split(
+                [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+                StringSplitOptions.RemoveEmptyEntries);
+
+            return segments.Length > 0 &&
+                   (segments[0].Equals("obj", StringComparison.OrdinalIgnoreCase) ||
+                    segments[0].Equals("bin", StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// Calculates a path relative to the solution root and ensures it does not escape outside that directory.
+        /// </summary>
+        /// <param name="fullPath">The absolute path of the file to map.</param>
+        /// <returns>A safe relative path inside the solution root directory.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when the file resides outside the solution root directory.</exception>
+        private string GetSafeRelativePath(string fullPath)
+        {
+            string relativePath = Path.GetRelativePath(_solutionRootPath, fullPath);
+
+            bool escapesRoot = relativePath == ".."
+                || relativePath.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                || relativePath.StartsWith($"..{Path.AltDirectorySeparatorChar}", StringComparison.Ordinal)
+                || Path.IsPathRooted(relativePath);
+
+            if (escapesRoot)
+                throw new InvalidOperationException($"File '{fullPath}' is located outside the solution root directory.");
+
+            return relativePath;
         }
 
         /// <summary>
