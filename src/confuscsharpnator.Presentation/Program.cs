@@ -1,10 +1,12 @@
-﻿using confuscsharpnator.UI.WinForms;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Build.Locator;
-using confuscsharpnator.Core.Abstractions;
+﻿using confuscsharpnator.Core.Abstractions;
 using confuscsharpnator.Core.Infrastructure;
 using confuscsharpnator.Core.Models;
+using confuscsharpnator.Core.Passes;
+using confuscsharpnator.Shared;
+using confuscsharpnator.UI.WinForms;
+using Microsoft.Build.Locator;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace confuscsharpnator.Presentation;
 
@@ -34,9 +36,25 @@ static class Program
                 // Presenter
                 services.AddSingleton<MainPresenter>();
 
+                // Core obfuscation features
+                var coreAssembly = typeof(IObfuscatorStep).Assembly;
+
+                var stepTypes = coreAssembly.GetTypes()
+                    .Where(t => typeof(IObfuscatorStep).IsAssignableFrom(t) && !t.IsAbstract && !t.IsInterface);
+
+                foreach (var type in stepTypes)
+                {
+                    // Register class
+                    services.AddSingleton(type);
+
+                    // Register interfaces
+                    services.AddSingleton(typeof(IObfuscatorStep), provider => provider.GetRequiredService(type));
+                    services.AddSingleton(typeof(IObfuscationFeatureInfo), provider => provider.GetRequiredService(type));
+                }
+
                 // Core services
-                services.AddSingleton<IFileWriter, FileWriter>(provider => provider.GetRequiredService<FileWriter>());
-                services.AddSingleton<IObfuscationService>(provider => provider.GetRequiredService<ObfuscationService>());
+                services.AddSingleton<IFileWriter, FileWriter>();
+                services.AddSingleton<IObfuscationService, ObfuscationService>();
             })
             .Build();
 

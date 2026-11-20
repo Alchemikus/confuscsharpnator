@@ -29,38 +29,30 @@
         private void InitializeComponent()
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainView));
-            LabelEntryFolder = new Label();
+            LabelEntrySolutionPath = new Label();
             LabelOutputFolder = new Label();
             GroupBoxObfuscationOptions = new SoupedUpGroupBox();
-            CheckBoxAntiTamper = new CheckBox();
-            CheckBoxAntiDebug = new CheckBox();
-            CheckBoxCallsHiding = new CheckBox();
-            CheckBoxStringEncryption = new CheckBox();
-            CheckBoxControlFlowDisruption = new CheckBox();
-            CheckBoxCalculationsObfuscator = new CheckBox();
-            CheckBoxVariableRenaming = new CheckBox();
-            ButtonEntryFolder = new Button();
+            ButtonEntrySolutionPath = new Button();
             TableLayoutPanelMain = new TableLayoutPanel();
             TableLayoutPanelInternal = new TableLayoutPanel();
             ButtonOutputFolderPath = new Button();
             ButtonObfuscate = new Button();
             TextBoxOutputFolderPath = new TextBox();
-            TextBoxEntryFolderPath = new TextBox();
-            GroupBoxObfuscationOptions.SuspendLayout();
+            TextBoxEntrySolutionPath = new TextBox();
             TableLayoutPanelMain.SuspendLayout();
             TableLayoutPanelInternal.SuspendLayout();
             SuspendLayout();
             // 
-            // LabelEntryFolder
+            // LabelEntrySolutionPath
             // 
-            LabelEntryFolder.Anchor = AnchorStyles.Left;
-            LabelEntryFolder.AutoSize = true;
-            LabelEntryFolder.BackColor = Color.FromArgb(200, 255, 255, 255);
-            LabelEntryFolder.Location = new Point(3, 88);
-            LabelEntryFolder.Name = "LabelEntryFolder";
-            LabelEntryFolder.Size = new Size(125, 20);
-            LabelEntryFolder.TabIndex = 0;
-            LabelEntryFolder.Text = "Folder wejściowy:";
+            LabelEntrySolutionPath.Anchor = AnchorStyles.Left;
+            LabelEntrySolutionPath.AutoSize = true;
+            LabelEntrySolutionPath.BackColor = Color.FromArgb(200, 255, 255, 255);
+            LabelEntrySolutionPath.Location = new Point(3, 88);
+            LabelEntrySolutionPath.Name = "LabelEntrySolutionPath";
+            LabelEntrySolutionPath.Size = new Size(129, 20);
+            LabelEntrySolutionPath.TabIndex = 0;
+            LabelEntrySolutionPath.Text = "Projekt wejściowy:";
             // 
             // LabelOutputFolder
             // 
@@ -76,15 +68,8 @@
             // 
             // GroupBoxObfuscationOptions
             // 
-            GroupBoxObfuscationOptions.Anchor = AnchorStyles.Right;
+            GroupBoxObfuscationOptions.Anchor = AnchorStyles.None;
             GroupBoxObfuscationOptions.BackColor = Color.Transparent;
-            GroupBoxObfuscationOptions.Controls.Add(CheckBoxAntiTamper);
-            GroupBoxObfuscationOptions.Controls.Add(CheckBoxAntiDebug);
-            GroupBoxObfuscationOptions.Controls.Add(CheckBoxCallsHiding);
-            GroupBoxObfuscationOptions.Controls.Add(CheckBoxStringEncryption);
-            GroupBoxObfuscationOptions.Controls.Add(CheckBoxControlFlowDisruption);
-            GroupBoxObfuscationOptions.Controls.Add(CheckBoxCalculationsObfuscator);
-            GroupBoxObfuscationOptions.Controls.Add(CheckBoxVariableRenaming);
             GroupBoxObfuscationOptions.Location = new Point(501, 110);
             GroupBoxObfuscationOptions.Name = "GroupBoxObfuscationOptions";
             GroupBoxObfuscationOptions.Size = new Size(278, 233);
@@ -92,104 +77,17 @@
             GroupBoxObfuscationOptions.TabStop = false;
             GroupBoxObfuscationOptions.Text = "Opcje obfuskacji";
             // 
-            // CheckBoxAntiTamper
+            // ButtonEntrySolutionPath
             // 
-            CheckBoxAntiTamper.AutoSize = true;
-            CheckBoxAntiTamper.BackColor = Color.Transparent;
-            CheckBoxAntiTamper.Location = new Point(15, 206);
-            CheckBoxAntiTamper.Name = "CheckBoxAntiTamper";
-            CheckBoxAntiTamper.Size = new Size(107, 24);
-            CheckBoxAntiTamper.TabIndex = 6;
-            CheckBoxAntiTamper.Text = "AntiTamper";
-            CheckBoxAntiTamper.UseVisualStyleBackColor = false;
-            // 
-            // CheckBoxAntiDebug
-            // 
-            CheckBoxAntiDebug.AutoSize = true;
-            CheckBoxAntiDebug.BackColor = Color.Transparent;
-            CheckBoxAntiDebug.Location = new Point(15, 176);
-            CheckBoxAntiDebug.Name = "CheckBoxAntiDebug";
-            CheckBoxAntiDebug.Size = new Size(103, 24);
-            CheckBoxAntiDebug.TabIndex = 5;
-            CheckBoxAntiDebug.Text = "AntiDebug";
-            CheckBoxAntiDebug.UseVisualStyleBackColor = false;
-            // 
-            // CheckBoxCallsHiding
-            // 
-            CheckBoxCallsHiding.AutoSize = true;
-            CheckBoxCallsHiding.BackColor = Color.Transparent;
-            CheckBoxCallsHiding.Checked = true;
-            CheckBoxCallsHiding.CheckState = CheckState.Checked;
-            CheckBoxCallsHiding.Location = new Point(15, 146);
-            CheckBoxCallsHiding.Name = "CheckBoxCallsHiding";
-            CheckBoxCallsHiding.Size = new Size(159, 24);
-            CheckBoxCallsHiding.TabIndex = 4;
-            CheckBoxCallsHiding.Text = "ukrywanie wywołań";
-            CheckBoxCallsHiding.UseVisualStyleBackColor = false;
-            // 
-            // CheckBoxStringEncryption
-            // 
-            CheckBoxStringEncryption.AutoSize = true;
-            CheckBoxStringEncryption.BackColor = Color.Transparent;
-            CheckBoxStringEncryption.Checked = true;
-            CheckBoxStringEncryption.CheckState = CheckState.Checked;
-            CheckBoxStringEncryption.Location = new Point(15, 116);
-            CheckBoxStringEncryption.Name = "CheckBoxStringEncryption";
-            CheckBoxStringEncryption.Size = new Size(237, 24);
-            CheckBoxStringEncryption.TabIndex = 3;
-            CheckBoxStringEncryption.Text = "szyfrowanie ciągów znakowych";
-            CheckBoxStringEncryption.UseVisualStyleBackColor = false;
-            // 
-            // CheckBoxControlFlowDisruption
-            // 
-            CheckBoxControlFlowDisruption.AutoSize = true;
-            CheckBoxControlFlowDisruption.BackColor = Color.Transparent;
-            CheckBoxControlFlowDisruption.Checked = true;
-            CheckBoxControlFlowDisruption.CheckState = CheckState.Checked;
-            CheckBoxControlFlowDisruption.Location = new Point(15, 86);
-            CheckBoxControlFlowDisruption.Name = "CheckBoxControlFlowDisruption";
-            CheckBoxControlFlowDisruption.Size = new Size(251, 24);
-            CheckBoxControlFlowDisruption.TabIndex = 2;
-            CheckBoxControlFlowDisruption.Text = "zaburzenie przepływu sterowania";
-            CheckBoxControlFlowDisruption.UseVisualStyleBackColor = false;
-            // 
-            // CheckBoxCalculationsObfuscator
-            // 
-            CheckBoxCalculationsObfuscator.AutoSize = true;
-            CheckBoxCalculationsObfuscator.BackColor = Color.Transparent;
-            CheckBoxCalculationsObfuscator.Checked = true;
-            CheckBoxCalculationsObfuscator.CheckState = CheckState.Checked;
-            CheckBoxCalculationsObfuscator.Location = new Point(15, 56);
-            CheckBoxCalculationsObfuscator.Name = "CheckBoxCalculationsObfuscator";
-            CheckBoxCalculationsObfuscator.Size = new Size(178, 24);
-            CheckBoxCalculationsObfuscator.TabIndex = 1;
-            CheckBoxCalculationsObfuscator.Text = "zaciemnienie obliczeń";
-            CheckBoxCalculationsObfuscator.UseVisualStyleBackColor = false;
-            // 
-            // CheckBoxVariableRenaming
-            // 
-            CheckBoxVariableRenaming.AutoSize = true;
-            CheckBoxVariableRenaming.BackColor = Color.Transparent;
-            CheckBoxVariableRenaming.Checked = true;
-            CheckBoxVariableRenaming.CheckState = CheckState.Checked;
-            CheckBoxVariableRenaming.Location = new Point(15, 26);
-            CheckBoxVariableRenaming.Name = "CheckBoxVariableRenaming";
-            CheckBoxVariableRenaming.Size = new Size(199, 24);
-            CheckBoxVariableRenaming.TabIndex = 0;
-            CheckBoxVariableRenaming.Text = "zmianna nazw zmiennych";
-            CheckBoxVariableRenaming.UseVisualStyleBackColor = false;
-            // 
-            // ButtonEntryFolder
-            // 
-            ButtonEntryFolder.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-            ButtonEntryFolder.BackColor = Color.White;
-            TableLayoutPanelInternal.SetColumnSpan(ButtonEntryFolder, 2);
-            ButtonEntryFolder.Location = new Point(3, 118);
-            ButtonEntryFolder.Name = "ButtonEntryFolder";
-            ButtonEntryFolder.Size = new Size(486, 30);
-            ButtonEntryFolder.TabIndex = 5;
-            ButtonEntryFolder.Text = "Wybierz kod do obfuskacji";
-            ButtonEntryFolder.UseVisualStyleBackColor = false;
+            ButtonEntrySolutionPath.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            ButtonEntrySolutionPath.BackColor = Color.White;
+            TableLayoutPanelInternal.SetColumnSpan(ButtonEntrySolutionPath, 2);
+            ButtonEntrySolutionPath.Location = new Point(3, 118);
+            ButtonEntrySolutionPath.Name = "ButtonEntrySolutionPath";
+            ButtonEntrySolutionPath.Size = new Size(486, 30);
+            ButtonEntrySolutionPath.TabIndex = 5;
+            ButtonEntrySolutionPath.Text = "Wybierz kod do obfuskacji";
+            ButtonEntrySolutionPath.UseVisualStyleBackColor = false;
             // 
             // TableLayoutPanelMain
             // 
@@ -215,13 +113,13 @@
             TableLayoutPanelInternal.ColumnCount = 2;
             TableLayoutPanelInternal.ColumnStyles.Add(new ColumnStyle());
             TableLayoutPanelInternal.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            TableLayoutPanelInternal.Controls.Add(ButtonEntryFolder, 0, 2);
-            TableLayoutPanelInternal.Controls.Add(LabelEntryFolder, 0, 1);
+            TableLayoutPanelInternal.Controls.Add(ButtonEntrySolutionPath, 0, 2);
+            TableLayoutPanelInternal.Controls.Add(LabelEntrySolutionPath, 0, 1);
             TableLayoutPanelInternal.Controls.Add(LabelOutputFolder, 0, 4);
             TableLayoutPanelInternal.Controls.Add(ButtonOutputFolderPath, 0, 6);
             TableLayoutPanelInternal.Controls.Add(ButtonObfuscate, 0, 8);
             TableLayoutPanelInternal.Controls.Add(TextBoxOutputFolderPath, 1, 4);
-            TableLayoutPanelInternal.Controls.Add(TextBoxEntryFolderPath, 1, 1);
+            TableLayoutPanelInternal.Controls.Add(TextBoxEntrySolutionPath, 1, 1);
             TableLayoutPanelInternal.Location = new Point(3, 3);
             TableLayoutPanelInternal.Name = "TableLayoutPanelInternal";
             TableLayoutPanelInternal.RowCount = 10;
@@ -263,18 +161,18 @@
             // TextBoxOutputFolderPath
             // 
             TextBoxOutputFolderPath.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-            TextBoxOutputFolderPath.Location = new Point(134, 208);
+            TextBoxOutputFolderPath.Location = new Point(138, 208);
             TextBoxOutputFolderPath.Name = "TextBoxOutputFolderPath";
-            TextBoxOutputFolderPath.Size = new Size(355, 27);
+            TextBoxOutputFolderPath.Size = new Size(351, 27);
             TextBoxOutputFolderPath.TabIndex = 11;
             // 
-            // TextBoxEntryFolderPath
+            // TextBoxEntrySolutionPath
             // 
-            TextBoxEntryFolderPath.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-            TextBoxEntryFolderPath.Location = new Point(134, 85);
-            TextBoxEntryFolderPath.Name = "TextBoxEntryFolderPath";
-            TextBoxEntryFolderPath.Size = new Size(355, 27);
-            TextBoxEntryFolderPath.TabIndex = 0;
+            TextBoxEntrySolutionPath.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            TextBoxEntrySolutionPath.Location = new Point(138, 85);
+            TextBoxEntrySolutionPath.Name = "TextBoxEntrySolutionPath";
+            TextBoxEntrySolutionPath.Size = new Size(351, 27);
+            TextBoxEntrySolutionPath.TabIndex = 0;
             // 
             // MainView
             // 
@@ -289,8 +187,6 @@
             MinimumSize = new Size(640, 285);
             Name = "MainView";
             Text = "Confuscsharpnator";
-            GroupBoxObfuscationOptions.ResumeLayout(false);
-            GroupBoxObfuscationOptions.PerformLayout();
             TableLayoutPanelMain.ResumeLayout(false);
             TableLayoutPanelMain.PerformLayout();
             TableLayoutPanelInternal.ResumeLayout(false);
@@ -300,22 +196,15 @@
 
         #endregion
 
-        private Label LabelEntryFolder;
+        private Label LabelEntrySolutionPath;
         private Label LabelOutputFolder;
         private SoupedUpGroupBox GroupBoxObfuscationOptions;
-        private CheckBox CheckBoxStringEncryption;
-        private CheckBox CheckBoxControlFlowDisruption;
-        private CheckBox CheckBoxCalculationsObfuscator;
-        private CheckBox CheckBoxVariableRenaming;
-        private CheckBox CheckBoxAntiDebug;
-        private CheckBox CheckBoxCallsHiding;
-        private CheckBox CheckBoxAntiTamper;
-        private Button ButtonEntryFolder;
+        private Button ButtonEntrySolutionPath;
         private TableLayoutPanel TableLayoutPanelMain;
         private TableLayoutPanel TableLayoutPanelInternal;
         private Button ButtonOutputFolderPath;
         private Button ButtonObfuscate;
         private TextBox TextBoxOutputFolderPath;
-        private TextBox TextBoxEntryFolderPath;
+        private TextBox TextBoxEntrySolutionPath;
     }
 }

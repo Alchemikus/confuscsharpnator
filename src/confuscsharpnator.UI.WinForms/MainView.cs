@@ -1,17 +1,24 @@
-﻿using System.Drawing.Drawing2D;
+﻿using confuscsharpnator.Shared;
+using System.Drawing.Drawing2D;
 
 namespace confuscsharpnator.UI.WinForms
 {
     public partial class MainView : Form, IMainView, IObfuscatorMetadata
     {
-        public bool VariableRenaming => CheckBoxVariableRenaming.Checked;
-        public bool CalculationsObfuscator => CheckBoxCalculationsObfuscator.Checked;
-        public bool ControlFlowDisruption => CheckBoxControlFlowDisruption.Checked;
-        public bool StringEncryption => CheckBoxStringEncryption.Checked;
-        public bool CallsHiding => CheckBoxCallsHiding.Checked;
-        public bool AntiDebug => CheckBoxAntiDebug.Checked;
-        public bool AntiTamper => CheckBoxAntiTamper.Checked;
-        public string InputFolderPath { get => TextBoxEntryFolderPath.Text.Trim() ?? string.Empty; }
+        private readonly IEnumerable<IObfuscationFeatureInfo> _features;
+
+        public IEnumerable<string> SelectedStepNames
+        {
+            get
+            {
+                return GroupBoxObfuscationOptions.Controls
+                    .OfType<CheckBox>()
+                    .Where(cb => cb.Checked)
+                    .Select(cb => cb.Tag?.ToString())
+                    .Where(tag => !string.IsNullOrEmpty(tag))!;
+            }
+        }
+        public string InputSolutionPath { get => TextBoxEntrySolutionPath.Text.Trim() ?? string.Empty; }
         public string OutputFolderPath { get => TextBoxOutputFolderPath.Text.Trim() ?? string.Empty; }
         public event Action? Obfuscate;
         public event Action? ViewClosing;
@@ -27,9 +34,13 @@ namespace confuscsharpnator.UI.WinForms
             }
         }
 
-        public MainView()
+        public MainView(IEnumerable<IObfuscationFeatureInfo> features)
         {
+            _features = features;
+
             InitializeComponent();
+            InitializeObfuscatorCheckboxes();
+
             this.SetStyle(
                 ControlStyles.AllPaintingInWmPaint |
                 ControlStyles.UserPaint |
@@ -47,7 +58,7 @@ namespace confuscsharpnator.UI.WinForms
                 System.Reflection.BindingFlags.SetProperty |
                 System.Reflection.BindingFlags.Instance |
                 System.Reflection.BindingFlags.NonPublic,
-                null, ButtonEntryFolder, [true]);
+                null, ButtonEntrySolutionPath, [true]);
             typeof(Button).InvokeMember("DoubleBuffered",
                 System.Reflection.BindingFlags.SetProperty |
                 System.Reflection.BindingFlags.Instance |
@@ -57,15 +68,15 @@ namespace confuscsharpnator.UI.WinForms
             ButtonObfuscate.Click += (s, e) => Obfuscate?.Invoke();
             ButtonObfuscate.Paint += GradientPainting;
 
-            ButtonEntryFolder.Click += ButtonEntryFolder_Click;
-            ButtonEntryFolder.Paint += GradientPainting;
+            ButtonEntrySolutionPath.Click += ButtonEntryProjectPath_Click;
+            ButtonEntrySolutionPath.Paint += GradientPainting;
 
             ButtonOutputFolderPath.Click += ButtonOutputFolderPath_Click;
             ButtonOutputFolderPath.Paint += GradientPainting;
 
-            TextBoxEntryFolderPath.TextChanged += ValidateFolderPaths;
+            TextBoxEntrySolutionPath.TextChanged += ValidatePaths;
 
-            TextBoxOutputFolderPath.TextChanged += ValidateFolderPaths;
+            TextBoxOutputFolderPath.TextChanged += ValidatePaths;
             this.FormClosing += (s, e) => ViewClosing?.Invoke();
         }
 
@@ -83,7 +94,7 @@ namespace confuscsharpnator.UI.WinForms
 
         public void ClearFields()
         {
-            TextBoxEntryFolderPath.Clear();
+            TextBoxEntrySolutionPath.Clear();
             TextBoxOutputFolderPath.Clear();
             ClearCheckboxToDefaultState();
         }
@@ -94,22 +105,68 @@ namespace confuscsharpnator.UI.WinForms
         /// <param name="freeze"></param>
         public void FreezeActions(bool freeze)
         {
-            ButtonEntryFolder.Enabled = !freeze;
+            ButtonEntrySolutionPath.Enabled = !freeze;
             ButtonOutputFolderPath.Enabled = !freeze;
             ButtonObfuscate.Enabled = !freeze;
-            TextBoxEntryFolderPath.Enabled = !freeze;
+            TextBoxEntrySolutionPath.Enabled = !freeze;
             TextBoxOutputFolderPath.Enabled = !freeze;
         }
 
-        private void ButtonEntryFolder_Click(object? sender, EventArgs e)
+        /// <summary>
+        /// Sets frame title if given; if not sets neutral title
+        /// </summary>
+        /// <param name="title"></param>
+        public void SetTitle(string? title)
         {
-            using var folderDialog = new FolderBrowserDialog();
-            if (folderDialog.ShowDialog() == DialogResult.OK)
+            this.Text = title ?? "Confuscsharpnator";
+        }
+
+        private void InitializeObfuscatorCheckboxes()
+        {
+            GroupBoxObfuscationOptions.SuspendLayout();
+            GroupBoxObfuscationOptions.Controls.Clear();
+
+            int yPos = 20;
+
+            foreach (var feature in _features.OrderBy(f => f.DisplayName))
             {
-                TextBoxEntryFolderPath.Text = folderDialog.SelectedPath;
+                var cb = new CheckBox
+                {
+                    Text = feature.DisplayName,
+                    Tag = feature.Name,
+                    Checked = feature.IsEnabledByDefault,
+                    AutoSize = true,
+                    Location = new Point(10, yPos)
+                };
+
+                GroupBoxObfuscationOptions.Controls.Add(cb);
+                yPos += 25;
+            }
+
+            GroupBoxObfuscationOptions.ResumeLayout(true);
+        }
+
+        private void ButtonEntryProjectPath_Click(object? sender, EventArgs e)
+        {
+            using var fileDialog = new OpenFileDialog
+            {
+                Title = "Wybierz plik rozwiązania",
+                Filter = "Pliki rozwiązania (*.sln;*.slnx)|*.sln;*.slnx",
+                CheckFileExists = true,
+                Multiselect = false
+            };
+            if (fileDialog.ShowDialog() == DialogResult.OK)
+            {
+                TextBoxEntrySolutionPath.Text = fileDialog.FileName;
                 if (string.IsNullOrWhiteSpace(TextBoxOutputFolderPath.Text))
-                    TextBoxOutputFolderPath.Text = Path.GetFullPath(folderDialog.SelectedPath) +
-                        Path.DirectorySeparatorChar + "obfuscated_" + new Random().GetString("1234567890qwertyuiopasdfghjklzxcvbnm", 10);
+                {
+                    string? projectDir = Path.GetDirectoryName(fileDialog.FileName);
+                    if (!string.IsNullOrEmpty(projectDir))
+                    {
+                        string randomSuffix = Random.Shared.GetString("1234567890qwertyuiopasdfghjklzxcvbnm", 10);
+                        TextBoxOutputFolderPath.Text = Path.Combine(projectDir, $"obfuscated_{randomSuffix}");
+                    }
+                }
             }
         }
 
@@ -176,13 +233,16 @@ namespace confuscsharpnator.UI.WinForms
 
         private void ClearCheckboxToDefaultState()
         {
-            CheckBoxVariableRenaming.Checked = true;
-            CheckBoxCalculationsObfuscator.Checked = true;
-            CheckBoxControlFlowDisruption.Checked = true;
-            CheckBoxStringEncryption.Checked = true;
-            CheckBoxCallsHiding.Checked = true;
-            CheckBoxAntiDebug.Checked = false;
-            CheckBoxAntiTamper.Checked = false;
+            foreach (var cb in GroupBoxObfuscationOptions.Controls.OfType<CheckBox>())
+            {
+                var name = cb.Tag?.ToString();
+                var originalFeature = _features.FirstOrDefault(f => f.Name == name);
+
+                if (originalFeature != null)
+                {
+                    cb.Checked = originalFeature.IsEnabledByDefault;
+                }
+            }
         }
 
         /// <summary>
@@ -190,11 +250,11 @@ namespace confuscsharpnator.UI.WinForms
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private void ValidateFolderPaths(object? sender, EventArgs e)
+        private void ValidatePaths(object? sender, EventArgs e)
         {
-            bool arePathsEqual = AreDirectoryPathsEqual(TextBoxEntryFolderPath.Text, TextBoxOutputFolderPath.Text);
+            bool willOverwrite = IsOutputSameAsProjectDirectory(TextBoxEntrySolutionPath.Text, TextBoxOutputFolderPath.Text);
 
-            if (arePathsEqual)
+            if (willOverwrite)
             {
                 if (LabelAttention == null)
                 {
@@ -228,25 +288,30 @@ namespace confuscsharpnator.UI.WinForms
             }
         }
 
-        /// <summary>
-        /// Checks if provided strings are equal by using Path library.
-        /// </summary>
-        /// <param name="path1"></param>
-        /// <param name="path2"></param>
-        /// <returns></returns>
-        private static bool AreDirectoryPathsEqual(string path1, string path2)
+        private static bool IsOutputSameAsProjectDirectory(string projectPath, string outputFolderPath)
         {
-            if (string.IsNullOrWhiteSpace(path1) || string.IsNullOrWhiteSpace(path2))
+            if (string.IsNullOrWhiteSpace(projectPath) || string.IsNullOrWhiteSpace(outputFolderPath))
             {
                 return false;
             }
 
             try
             {
-                string fullPath1 = Path.GetFullPath(path1).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                string fullPath2 = Path.GetFullPath(path2).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string fullProjectPath = Path.GetFullPath(projectPath);
 
-                return fullPath1.Equals(fullPath2, StringComparison.OrdinalIgnoreCase);
+                string? projectDirectory = File.Exists(fullProjectPath) ||
+                                           Path.GetExtension(fullProjectPath).Equals(".sln", StringComparison.OrdinalIgnoreCase) ||
+                                           Path.GetExtension(fullProjectPath).Equals(".slnx", StringComparison.OrdinalIgnoreCase)
+                    ? Path.GetDirectoryName(fullProjectPath)
+                    : fullProjectPath;
+
+                if (string.IsNullOrWhiteSpace(projectDirectory))
+                    return false;
+
+                string normalizedProjectDir = projectDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string normalizedOutputDir = Path.GetFullPath(outputFolderPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                return normalizedProjectDir.Equals(normalizedOutputDir, StringComparison.OrdinalIgnoreCase);
             }
             catch (Exception)
             {
