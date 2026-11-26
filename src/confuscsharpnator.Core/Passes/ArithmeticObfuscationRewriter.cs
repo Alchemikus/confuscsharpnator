@@ -3,7 +3,6 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Numerics;
-using System.Runtime.ConstrainedExecution;
 
 namespace confuscsharpnator.Core.Passes
 {
@@ -116,6 +115,76 @@ namespace confuscsharpnator.Core.Passes
             return node.WithLeft(visitedLeft).WithRight(visitedRight);
 
         }
+
+
+        /// <summary>
+        /// Przechwytuje stałe liczbowe w kodzie (np. 100, 5000L, 3.14) i zamienia je
+        /// na wyrażenia maskujące (Constant Splitting).
+        /// </summary>
+
+        public override SyntaxNode? VisitLiteralExpression(LiteralExpressionSyntax node)
+        {
+            //Pomiń stringi, char, bool, null
+            if (!node.IsKind(SyntaxKind.NumericLiteralExpression))
+            {
+                return base.VisitLiteralExpression(node);
+            }
+
+            //Zostaw stałe w miejscach wymagających wartości znanych w czasie kompilacji
+            if (IsInCompileTimeConstantContext(node))
+            {
+                return base.VisitLiteralExpression(node);
+            }
+
+            string? replacementCode = null;
+
+
+            //int (32-bit) -> maskowanie XOR z losowym kluczem
+            if(node.Token.Value is int intValue)
+            {
+                int key = _random.Next(1, int.MaxValue);
+                int encoded = intValue ^ key;
+
+                //Zewnętrzne nawiasy aby zachować priorytet operatorów
+                replacementCode = $"({encoded} ^ {key})";
+            }
+
+
+
+            //long (64-bit) -> maskowanie XOR z sufiksem 
+            else if (node.Token.Value is long longValue)
+            {
+                long key = _random.NextInt64(1, long.MaxValue);
+                long encoded = longValue ^ key;
+
+                replacementCode = $"({encoded}L ^ {key}L)";
+            }
+
+
+            //double -> konwersja 64 bitów na long, XOR i odtworzenie bitów.
+            //Gwarantuje brak utraty precyzji.
+            else if(node.Token.Value is double doubleValue)
+            {
+                long rawBits = BitConverter.DoubleToInt64Bits(doubleValue);
+                long key = _random.NextInt64(1, long.MaxValue);
+                long encoded = rawBits ^ key;
+
+                replacementCode = $"System.BitConverter.Int64BitsToDouble({encoded}L ^ {key}L)";
+            }
+
+
+            //Nastąpiła konwersja
+            if (replacementCode != null)
+            {
+                return SyntaxFactory.ParseExpression(replacementCode)
+                    .WithLeadingTrivia(node.GetLeadingTrivia())
+                    .WithTrailingTrivia(node.GetTrailingTrivia());
+            }
+
+            return base.VisitLiteralExpression(node);
+        }
+
+
 
 
 
@@ -237,6 +306,10 @@ namespace confuscsharpnator.Core.Passes
                 case SyntaxKind.MultiplyExpression:
                     //a * b == (-a) * (-b)
                     return $"((-({left})) * (-({right})))";
+
+                case SyntaxKind.DivideExpression:
+                    // a / b == (-a) / (-b)
+                    return $"((-({left})) / (-({right})))";
 
                 default:
                     return null;
