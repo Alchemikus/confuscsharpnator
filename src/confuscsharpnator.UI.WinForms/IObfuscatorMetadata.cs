@@ -7,16 +7,10 @@ namespace confuscsharpnator.UI.WinForms
     public interface IObfuscatorMetadata
     {
         // obfuscation parameters
-        bool VariableRenaming { get; }
-        bool CalculationsObfuscator { get; }
-        bool ControlFlowDisruption { get; }
-        bool StringEncryption { get; }
-        bool CallsHiding { get; }
-        bool AntiDebug { get; }
-        bool AntiTamper { get; }
+        IEnumerable<string> SelectedStepNames { get; }
 
         // folder paths
-        string InputFolderPath { get; }
+        string InputSolutionPath { get; }
         string OutputFolderPath { get; }
     }
 }

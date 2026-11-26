@@ -7,5 +7,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/confuscsharpnator.Core.Tests/confuscsharpnator.Core.Tests.csproj" />
+    <Project Path="tests/confuscsharpnator.Presentation.Tests/confuscsharpnator.Presentation.Tests.csproj" Id="7e8cca26-8eb7-48b6-bc65-68616348819d" />
   </Folder>
 </Solution>

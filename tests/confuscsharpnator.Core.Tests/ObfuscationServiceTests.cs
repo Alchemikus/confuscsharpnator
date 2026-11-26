@@ -7,14 +7,15 @@ using Moq;
 namespace confuscsharpnator.Core.Tests
 {
     /// <summary>
-    /// Unit tests for the ObfuscationService class, focusing on state management, 
-    /// validation guard clauses, and proper resource disposal.
+    /// Unit tests for the <see cref="ObfuscationService"/> class, focusing on state management,
+    /// validation guard clauses, step execution ordering, and proper resource disposal.
     /// </summary>
-    public class ObfuscationServiceTests
+    public class ObfuscationServiceTests : IDisposable
     {
         private readonly Mock<IFileWriter> _fileWriterMock;
         private readonly Mock<IObfuscatorStep> _dummyStepMock;
         private readonly List<IObfuscatorStep> _injectedSteps;
+        private readonly List<string> _tempDirectories = [];
 
         static ObfuscationServiceTests()
         {
@@ -26,17 +27,8 @@ namespace confuscsharpnator.Core.Tests
 
         public ObfuscationServiceTests()
         {
-            // Arrange: Setup standard mocks used across tests
             _fileWriterMock = new Mock<IFileWriter>();
-            _dummyStepMock = new Mock<IObfuscatorStep>();
-
-            // Mocking the step to act as real
-            _dummyStepMock.Setup(s => s.Name).Returns("Rename");
-
-            _dummyStepMock
-                .Setup(s => s.Execute(It.IsAny<Solution>(), It.IsAny<ObfuscationContext>()))
-                .Returns((Solution sol, ObfuscationContext ctx) => sol);
-
+            _dummyStepMock = CreateStepMock("Rename", executionOrder: 40);
             _injectedSteps = [_dummyStepMock.Object];
         }
 
@@ -59,7 +51,6 @@ namespace confuscsharpnator.Core.Tests
         {
             // Arrange
             using var service = new ObfuscationService(_fileWriterMock.Object, _injectedSteps);
-            // Create a guaranteed non-existent path
             string nonExistentPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "missing.sln");
 
             // Act & Assert
@@ -90,6 +81,66 @@ namespace confuscsharpnator.Core.Tests
             Assert.Contains("No solution to save", exception.Message);
         }
 
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("   ")]
+        public async Task SaveAsync_WithNullOrEmptyTargetDirectory_ThrowsArgumentException(string? invalidTargetDir)
+        {
+            // Arrange
+            using var service = new ObfuscationService(_fileWriterMock.Object, _injectedSteps);
+            string slnPath = await CreateTempSolutionAsync("DummySolution.sln", TestContext.Current.CancellationToken);
+            await service.InitializeAsync(slnPath);
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(() => service.SaveAsync(invalidTargetDir!));
+            Assert.Contains("Target directory path cannot be empty", exception.Message);
+        }
+
+        [Fact]
+        public async Task Obfuscate_ExecutesOnlySelectedSteps_CaseInsensitive()
+        {
+            // Arrange
+            var selectedStep = CreateStepMock("StringEncryption", executionOrder: 10);
+            var unselectedStep = CreateStepMock("AntiDebug", executionOrder: 0);
+
+            using var service = new ObfuscationService(_fileWriterMock.Object, [selectedStep.Object, unselectedStep.Object]);
+            string slnPath = await CreateTempSolutionAsync("DummySolution.sln", TestContext.Current.CancellationToken);
+            await service.InitializeAsync(slnPath);
+
+            // Act
+            service.Obfuscate(["stringencryption"]);
+
+            // Assert
+            selectedStep.Verify(s => s.Process(It.IsAny<Solution>(), It.IsAny<ObfuscationContext>()), Times.Once);
+            unselectedStep.Verify(s => s.Process(It.IsAny<Solution>(), It.IsAny<ObfuscationContext>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task Obfuscate_RespectsExecutionOrderAndNameTieBreaker()
+        {
+            // Arrange
+            var executionLog = new List<string>();
+
+            var stepLast = CreateStepMock("ControlFlow", executionOrder: 30, onProcess: () => executionLog.Add("ControlFlow"));
+            var stepTieB = CreateStepMock("MathObfuscation", executionOrder: 20, onProcess: () => executionLog.Add("MathObfuscation"));
+            var stepTieA = CreateStepMock("callsHiding", executionOrder: 20, onProcess: () => executionLog.Add("callsHiding"));
+            var stepFirst = CreateStepMock("AntiDebug", executionOrder: 0, onProcess: () => executionLog.Add("AntiDebug"));
+
+            // Celowo wstrzykujemy kroki w wymieszanej kolejności
+            var steps = new[] { stepLast.Object, stepTieB.Object, stepTieA.Object, stepFirst.Object };
+            using var service = new ObfuscationService(_fileWriterMock.Object, steps);
+
+            string slnPath = await CreateTempSolutionAsync("DummySolution.sln", TestContext.Current.CancellationToken);
+            await service.InitializeAsync(slnPath);
+
+            // Act
+            service.Obfuscate(["ControlFlow", "MathObfuscation", "callsHiding", "AntiDebug"]);
+
+            // Assert
+            Assert.Equal(["AntiDebug", "callsHiding", "MathObfuscation", "ControlFlow"], executionLog);
+        }
+
         [Fact]
         public void Dispose_WhenCalledMultipleTimes_DoesNotThrowException()
         {
@@ -98,12 +149,10 @@ namespace confuscsharpnator.Core.Tests
 
             // Act
             service.Dispose();
-
-            // Record.Exception captures any exception thrown by the action, or returns null if none.
             var exception = Record.Exception(() => service.Dispose());
 
             // Assert
-            Assert.Null(exception); // Proves that _disposed flag logic works perfectly
+            Assert.Null(exception);
         }
 
         [Fact]
@@ -111,42 +160,78 @@ namespace confuscsharpnator.Core.Tests
         {
             // Arrange
             using var service = new ObfuscationService(_fileWriterMock.Object, _injectedSteps);
+            string slnPath = await CreateTempSolutionAsync("DummySolution.sln", TestContext.Current.CancellationToken);
+            string outputDir = Path.Combine(Path.GetDirectoryName(slnPath)!, "Output");
 
+            Dictionary<string, string>? savedFiles = null;
+            _fileWriterMock
+                .Setup(fw => fw.WriteAllFilesAsync(outputDir, It.IsAny<Dictionary<string, string>>()))
+                .Callback<string, Dictionary<string, string>>((_, files) => savedFiles = files)
+                .Returns(Task.CompletedTask);
+
+            // Act
+            await service.InitializeAsync(slnPath);
+            service.Obfuscate(["Rename"]);
+            await service.SaveAsync(outputDir);
+
+            // Assert
+            _dummyStepMock.Verify(s => s.Process(
+                It.IsAny<Solution>(),
+                It.IsAny<ObfuscationContext>()),
+                Times.Once);
+
+            _fileWriterMock.Verify(fw => fw.WriteAllFilesAsync(
+                outputDir,
+                It.IsAny<Dictionary<string, string>>()),
+                Times.Once);
+
+            Assert.NotNull(savedFiles);
+            Assert.True(savedFiles.ContainsKey("DummySolution.sln"));
+        }
+
+        // --- Helper methods ---
+
+        private static Mock<IObfuscatorStep> CreateStepMock(string name, uint executionOrder, Action? onProcess = null)
+        {
+            var mock = new Mock<IObfuscatorStep>();
+            mock.Setup(s => s.Name).Returns(name);
+            mock.Setup(s => s.ExecutionOrder).Returns(executionOrder);
+            mock.Setup(s => s.Process(It.IsAny<Solution>(), It.IsAny<ObfuscationContext>()))
+                .Returns((Solution sol, ObfuscationContext _) =>
+                {
+                    onProcess?.Invoke();
+                    return sol;
+                });
+
+            return mock;
+        }
+
+        private async Task<string> CreateTempSolutionAsync(string fileName, CancellationToken cancellationToken)
+        {
             string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
             Directory.CreateDirectory(tempDir);
-            string slnPath = Path.Combine(tempDir, "DummySolution.sln");
+            _tempDirectories.Add(tempDir);
 
-            // Minimalistic solution file content to satisfy MSBuild
-            await File.WriteAllTextAsync(slnPath, "Microsoft Visual Studio Solution File, Format Version 12.00", TestContext.Current.CancellationToken);
+            string slnPath = Path.Combine(tempDir, fileName);
+            await File.WriteAllTextAsync(
+                slnPath,
+                "Microsoft Visual Studio Solution File, Format Version 12.00",
+                cancellationToken);
 
-            string outputDir = Path.Combine(tempDir, "Output");
+            return slnPath;
+        }
 
-            try
+        public void Dispose()
+        {
+            foreach (var dir in _tempDirectories)
             {
-                // Act
-                await service.InitializeAsync(slnPath);
-                service.Obfuscate(["Rename"]);
-                await service.SaveAsync(outputDir);
-
-                // Assert
-
-                _dummyStepMock.Verify(s => s.Execute(
-                    It.IsAny<Solution>(),
-                    It.IsAny<ObfuscationContext>()),
-                    Times.Once);
-
-                _fileWriterMock.Verify(fw => fw.WriteAllFilesAsync(
-                    outputDir,
-                    It.IsAny<Dictionary<string, string>>()),
-                    Times.Once);
-            }
-            finally
-            {
-                if (Directory.Exists(tempDir))
+                if (Directory.Exists(dir))
                 {
-                    Directory.Delete(tempDir, recursive: true);
+                    Directory.Delete(dir, recursive: true);
                 }
             }
+
+            GC.SuppressFinalize(this);
         }
     }
 }
